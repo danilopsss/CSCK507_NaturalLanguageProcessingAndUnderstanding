@@ -31,5 +31,5 @@ async def websocket_endpoint(websocket: WebSocket):
     while True:
         data = await websocket.receive_text()
         await websocket.send_text(
-            f"[{datetime.now(timezone.utc)}] Message text was: {data}"
+            "Machine: {data}"
         )
