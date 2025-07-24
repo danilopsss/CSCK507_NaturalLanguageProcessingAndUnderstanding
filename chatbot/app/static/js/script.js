@@ -1,4 +1,4 @@
-var ws = new WebSocket("ws://localhost:8000/ws");
+//var ws = new WebSocket("ws://localhost:8000/ws");
 
 function displayMessage(message, type) {
     const chatBox = document.getElementById('chat-box');
