@@ -6,6 +6,7 @@ from fastapi.templating import Jinja2Templates
 from datetime import datetime, timezone
 from pathlib import Path
 
+
 app = FastAPI()
 
 templates = next(Path(__file__).parent.rglob("**/*/templates"))
@@ -25,11 +26,13 @@ async def read_item(request: Request):
         request=request, name="index.html"
     )
 
+
+
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
     while True:
         data = await websocket.receive_text()
         await websocket.send_text(
-            f"[{datetime.now(timezone.utc)}] Message text was: {data}"
+            f"Machine: {data}"
         )
