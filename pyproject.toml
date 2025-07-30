@@ -10,4 +10,6 @@ dependencies = [
     "ruff>=0.12.4",
     "uvicorn>=0.35.0",
     "websockets>=15.0.1",
+    "torch>=2.3.0",
+    "spacy>=3.8.0"
 ]
