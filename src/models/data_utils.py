@@ -28,8 +28,8 @@ def load_preprocessed_data(base_path=None):
         # Go up two levels to project root, then into data
         project_root = os.path.dirname(os.path.dirname(script_dir))
         base_path = os.path.join(project_root, "data")
-    
-    print(f"  → Looking for data in: {base_path}")
+
+    print(f"Looking for data in: {base_path}")
 
     # Check if preprocessed data exists
     processed_file = os.path.join(base_path, "DATASET_PROCESSED.csv")
@@ -38,7 +38,7 @@ def load_preprocessed_data(base_path=None):
 
     if not os.path.exists(processed_file):
         raise FileNotFoundError(
-            f"❌ ERROR: Preprocessed data not found!\n\n"
+            f"ERROR: Preprocessed data not found!\n\n"
             f"Missing: {processed_file}\n\n"
             f"Please run the 'preprocessing_and_split.ipynb' notebook first to create the preprocessed data.\n"
             f"The notebook will create:\n"
@@ -50,23 +50,23 @@ def load_preprocessed_data(base_path=None):
 
     if not os.path.exists(vocab_word2index) or not os.path.exists(vocab_index2word):
         raise FileNotFoundError(
-            f"❌ ERROR: Vocabulary files not found!\n\n"
+            f"ERROR: Vocabulary files not found!\n\n"
             f"Missing: {vocab_word2index} or {vocab_index2word}\n\n"
             f"Please run the 'preprocessing_and_split.ipynb' notebook first."
         )
 
-    print("  → Loading vocabulary...")
+    print("Loading vocabulary...")
     with open(vocab_word2index, "rb") as f:
         word2index = pickle.load(f)
     with open(vocab_index2word, "rb") as f:
         index2word = pickle.load(f)
 
-    print("  → Loading processed dataset...")
+    print("Loading processed dataset...")
     qa_df = pd.read_csv(processed_file)
     qa_df["question_padded"] = qa_df["question_padded"].apply(ast.literal_eval)
     qa_df["answer_padded"] = qa_df["answer_padded"].apply(ast.literal_eval)
 
-    print("  → Creating train/val/test splits...")
+    print("Creating train/val/test splits...")
     # Recreate train/val/test split with same random state as notebook/evals
     X = np.array(qa_df["question_padded"].tolist())
     y = np.array(qa_df["answer_padded"].tolist())
@@ -77,7 +77,7 @@ def load_preprocessed_data(base_path=None):
         X_temp, y_temp, test_size=0.5, random_state=42
     )
 
-    print(f"  ✓ Data loaded successfully!")
+    print(f"Data loaded successfully!")
     print(f"    - Vocabulary size: {len(word2index)}")
     print(f"    - Train: {len(X_train)}, Val: {len(X_val)}, Test: {len(X_test)}")
 

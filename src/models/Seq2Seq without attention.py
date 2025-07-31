@@ -1,6 +1,8 @@
 import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
+from data_utils import load_preprocessed_data, get_vocab_size, print_data_summary
+from utils.device_config import get_device
 import random
 import sys
 import os
@@ -9,12 +11,6 @@ import os
 script_dir = os.path.dirname(os.path.abspath(__file__))
 src_dir = os.path.dirname(script_dir)
 sys.path.insert(0, src_dir)
-
-# Import from the data_utils file in the same directory (src/models/data_utils.py)
-from data_utils import load_preprocessed_data, get_vocab_size, print_data_summary
-
-# Import from the utils package directory (src/utils/device_config.py)
-from utils.device_config import get_device
 
 device = get_device()
 
@@ -143,9 +139,6 @@ for epoch in range(EPOCHS):
         total_loss += loss.item()
     print(f"Epoch {epoch + 1} Loss: {total_loss / len(train_loader):.4f}")
 
-# Create Models directory if it doesn't exist
-import os
-
 # Get absolute path to project root and models directory
 script_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(os.path.dirname(script_dir))
@@ -156,4 +149,4 @@ os.makedirs(models_dir, exist_ok=True)
 # Save model to match evals.py expectations
 model_path = os.path.join(models_dir, "chatbot_model_no_attention.pth")
 torch.save(model.state_dict(), model_path)
-print(f"\n✓ Model saved to: {model_path}")
+print(f"\nModel saved to: {model_path}")
