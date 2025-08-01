@@ -30,7 +30,7 @@ def get_device(force_cpu=False, force_cuda=False, force_mps=False):
     elif force_mps:
         if not torch.backends.mps.is_available():
             raise RuntimeError("MPS forced but not available!")
-        device = torch.device("mps")
+        device = torch.device("ex")
         print("Device forced to MPS (Apple Silicon)")
     else:
         # Check environment variable first
