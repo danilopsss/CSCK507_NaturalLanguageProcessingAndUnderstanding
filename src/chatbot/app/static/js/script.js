@@ -27,10 +27,25 @@ function displayMessageInBox(message, type, boxId) {
     const chatBox = document.getElementById(boxId);
     const messageElement = document.createElement('div');
     messageElement.classList.add('chat-message', type === 'user' ? 'user-message' : 'server-message');
-    messageElement.textContent = message;
     chatBox.appendChild(messageElement);
     chatBox.scrollTop = chatBox.scrollHeight;
+
+    if (type === 'server-message') {
+        let i = 0;
+        function typeWriter() {
+            if (i < message.length) {
+                messageElement.textContent += message.charAt(i);
+                i++;
+                chatBox.scrollTop = chatBox.scrollHeight;
+                setTimeout(typeWriter, 30); // Adjust speed here
+            }
+        }
+        typeWriter();
+    } else {
+        messageElement.textContent = message;
+    }
 }
+
 
 function displayMessage(message, type) {
     const attentionInput = document.getElementById('attention-input');

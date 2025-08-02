@@ -1,15 +1,6 @@
 import os
-import sys
 import torch
 import torch.nn as nn
-
-# Add src directory to path for imports
-script_dir = os.path.dirname(os.path.abspath(__file__))
-src_dir = os.path.dirname(script_dir)
-sys.path.insert(0, src_dir)
-
-# Import consolidated utilities
-# Must happen after after path setup!
 from utils.model_utils import (
     load_preprocessed_data,
     ChatDataset,
@@ -52,7 +43,7 @@ criterion = nn.CrossEntropyLoss(ignore_index=word2idx[PAD_TOKEN])
 train(encoder, decoder, train_loader, optimizer, criterion)
 
 # Save the model
-project_root = os.path.dirname(os.path.dirname(script_dir))
+project_root = os.path.dirname(os.path.dirname("."))
 model_path = os.path.join(project_root, "models", "chatbot_model_with_attention.pth")
 save_model(encoder, decoder, model_path)
 
