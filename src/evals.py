@@ -39,6 +39,16 @@ try:
 except:
     pass
 
+# BERTScore import
+try:
+    from bert_score import score as bert_score
+
+    BERTSCORE_AVAILABLE = True
+    print("BERTScore library loaded successfully")
+except ImportError:
+    BERTSCORE_AVAILABLE = False
+    print("BERTScore not available. Install with: uv add bert-score")
+
 # MODEL ARCHITECTURES
 
 
@@ -202,6 +212,40 @@ def calculate_bleu_score(references: List[List[str]], hypothesis: List[str]) -> 
         return 0.0
 
 
+def calculate_bert_score(
+    predictions: List[str], references: List[str]
+) -> Dict[str, float]:
+    """
+    Calculate BERTScore metrics for predictions vs references
+
+    Args:
+        predictions: List of model-generated text
+        references: List of ground truth text
+
+    Returns:
+        Dictionary with precision, recall, and F1 scores
+    """
+    if not BERTSCORE_AVAILABLE:
+        print("BERTScore not available. Install with: uv add bert-score")
+        return {"bert_precision": 0.0, "bert_recall": 0.0, "bert_f1": 0.0}
+
+    if not predictions or not references:
+        return {"bert_precision": 0.0, "bert_recall": 0.0, "bert_f1": 0.0}
+
+    print("Calculating BERTScore metrics...")
+
+    # Calculate BERTScore using default BERT model
+    P, R, F1 = bert_score(
+        predictions, references, lang="en", verbose=False, device=str(device)
+    )
+
+    return {
+        "bert_precision": P.mean().item(),
+        "bert_recall": R.mean().item(),
+        "bert_f1": F1.mean().item(),
+    }
+
+
 def evaluate_model_predictions(
     model, test_loader, word2idx, idx2word, model_name="Model"
 ):
@@ -327,7 +371,7 @@ def generate_prediction_with_attention(model, src, word2idx, idx2word, max_len=2
 
 
 def calculate_metrics(predictions: List[str], targets: List[str]) -> Dict[str, float]:
-    """Calculate evaluation metrics"""
+    """Calculate evaluation metrics including BLEU, accuracy, and BERTScore"""
     bleu_scores = []
     exact_matches = 0
 
@@ -337,7 +381,7 @@ def calculate_metrics(predictions: List[str], targets: List[str]) -> Dict[str, f
     metric_pbar = tqdm(
         zip(predictions, targets),
         total=len(predictions),
-        desc="Computing metrics",
+        desc="Computing BLEU & Accuracy",
         unit="sample",
     )
 
@@ -368,10 +412,16 @@ def calculate_metrics(predictions: List[str], targets: List[str]) -> Dict[str, f
     avg_bleu = np.mean(bleu_scores) if bleu_scores else 0.0
     accuracy = exact_matches / len(predictions) if predictions else 0.0
 
+    # Calculate BERTScore metrics
+    bert_metrics = calculate_bert_score(predictions, targets)
+
     return {
         "bleu_score": avg_bleu,
         "accuracy": accuracy,
         "total_samples": len(predictions),
+        "bert_precision": bert_metrics["bert_precision"],
+        "bert_recall": bert_metrics["bert_recall"],
+        "bert_f1": bert_metrics["bert_f1"],
     }
 
 
@@ -401,7 +451,7 @@ def load_model_no_attention(vocab_size, word2idx):
     # Load the saved model
     try:
         model.load_state_dict(torch.load(model_path, map_location=device))
-        print(f"✓ Loaded model without attention from {model_path}")
+        print(f"Loaded model without attention from {model_path}")
     except Exception as e:
         raise RuntimeError(
             f"ERROR: Could not load model from '{model_path}': {e}\n\n"
@@ -444,7 +494,7 @@ def load_model_with_attention(vocab_size, word2idx):
         checkpoint = torch.load(model_path, map_location=device)
         encoder.load_state_dict(checkpoint["encoder_state_dict"])
         decoder.load_state_dict(checkpoint["decoder_state_dict"])
-        print(f"✓ Loaded model with attention from {model_path}")
+        print(f"Loaded model with attention from {model_path}")
     except Exception as e:
         raise RuntimeError(
             f"ERROR: Could not load model from '{model_path}': {e}\n\n"
@@ -466,7 +516,7 @@ def load_model_with_attention(vocab_size, word2idx):
 
 
 def print_sample_predictions(
-    predictions: List[str], targets: List[str], model_name: str, n_samples: int = 5
+    predictions: List[str], targets: List[str], model_name: str, n_samples: int = 10
 ):
     """Print sample predictions for manual evaluation"""
     print(f"\n--- Sample Predictions for {model_name} ---")
@@ -507,9 +557,12 @@ def main():
     metrics_no_att = calculate_metrics(predictions_no_att, targets_no_att)
 
     print(f"\n--- Results for Seq2Seq without Attention ---")
-    print(f"BLEU Score: {metrics_no_att['bleu_score']:.4f}")
-    print(f"Accuracy:   {metrics_no_att['accuracy']:.4f}")
-    print(f"Total Samples: {metrics_no_att['total_samples']}")
+    print(f"BLEU Score:      {metrics_no_att['bleu_score']:.4f}")
+    print(f"Accuracy:        {metrics_no_att['accuracy']:.4f}")
+    print(f"BERT Precision:  {metrics_no_att['bert_precision']:.4f}")
+    print(f"BERT Recall:     {metrics_no_att['bert_recall']:.4f}")
+    print(f"BERT F1:         {metrics_no_att['bert_f1']:.4f}")
+    print(f"Total Samples:   {metrics_no_att['total_samples']}")
 
     print_sample_predictions(
         predictions_no_att, targets_no_att, "Seq2Seq without Attention"
@@ -527,9 +580,12 @@ def main():
     metrics_with_att = calculate_metrics(predictions_with_att, targets_with_att)
 
     print(f"\n--- Results for Seq2Seq with Luong Attention ---")
-    print(f"BLEU Score: {metrics_with_att['bleu_score']:.4f}")
-    print(f"Accuracy:   {metrics_with_att['accuracy']:.4f}")
-    print(f"Total Samples: {metrics_with_att['total_samples']}")
+    print(f"BLEU Score:      {metrics_with_att['bleu_score']:.4f}")
+    print(f"Accuracy:        {metrics_with_att['accuracy']:.4f}")
+    print(f"BERT Precision:  {metrics_with_att['bert_precision']:.4f}")
+    print(f"BERT Recall:     {metrics_with_att['bert_recall']:.4f}")
+    print(f"BERT F1:         {metrics_with_att['bert_f1']:.4f}")
+    print(f"Total Samples:   {metrics_with_att['total_samples']}")
 
     print_sample_predictions(
         predictions_with_att, targets_with_att, "Seq2Seq with Attention"
@@ -549,6 +605,15 @@ def main():
     print(
         f"{'Accuracy':<20} {metrics_no_att['accuracy']:<15.4f} {metrics_with_att['accuracy']:<15.4f} {metrics_with_att['accuracy'] - metrics_no_att['accuracy']:<15.4f}"
     )
+    print(
+        f"{'BERT Precision':<20} {metrics_no_att['bert_precision']:<15.4f} {metrics_with_att['bert_precision']:<15.4f} {metrics_with_att['bert_precision'] - metrics_no_att['bert_precision']:<15.4f}"
+    )
+    print(
+        f"{'BERT Recall':<20} {metrics_no_att['bert_recall']:<15.4f} {metrics_with_att['bert_recall']:<15.4f} {metrics_with_att['bert_recall'] - metrics_no_att['bert_recall']:<15.4f}"
+    )
+    print(
+        f"{'BERT F1':<20} {metrics_no_att['bert_f1']:<15.4f} {metrics_with_att['bert_f1']:<15.4f} {metrics_with_att['bert_f1'] - metrics_no_att['bert_f1']:<15.4f}"
+    )
 
     # Save results
     results = {
@@ -559,6 +624,12 @@ def main():
             - metrics_no_att["bleu_score"],
             "accuracy_improvement": metrics_with_att["accuracy"]
             - metrics_no_att["accuracy"],
+            "bert_precision_improvement": metrics_with_att["bert_precision"]
+            - metrics_no_att["bert_precision"],
+            "bert_recall_improvement": metrics_with_att["bert_recall"]
+            - metrics_no_att["bert_recall"],
+            "bert_f1_improvement": metrics_with_att["bert_f1"]
+            - metrics_no_att["bert_f1"],
         },
     }
 
@@ -585,15 +656,28 @@ def main():
 
         f.write("Seq2Seq without Attention:\n")
         f.write(f"  BLEU Score: {metrics_no_att['bleu_score']:.4f}\n")
-        f.write(f"  Accuracy: {metrics_no_att['accuracy']:.4f}\n\n")
+        f.write(f"  Accuracy: {metrics_no_att['accuracy']:.4f}\n")
+        f.write(f"  BERT Precision: {metrics_no_att['bert_precision']:.4f}\n")
+        f.write(f"  BERT Recall: {metrics_no_att['bert_recall']:.4f}\n")
+        f.write(f"  BERT F1: {metrics_no_att['bert_f1']:.4f}\n\n")
 
         f.write("Seq2Seq with Luong Attention:\n")
         f.write(f"  BLEU Score: {metrics_with_att['bleu_score']:.4f}\n")
-        f.write(f"  Accuracy: {metrics_with_att['accuracy']:.4f}\n\n")
+        f.write(f"  Accuracy: {metrics_with_att['accuracy']:.4f}\n")
+        f.write(f"  BERT Precision: {metrics_with_att['bert_precision']:.4f}\n")
+        f.write(f"  BERT Recall: {metrics_with_att['bert_recall']:.4f}\n")
+        f.write(f"  BERT F1: {metrics_with_att['bert_f1']:.4f}\n\n")
 
         f.write("Improvements (With Attention - Without Attention):\n")
         f.write(f"  BLEU Score: {results['comparison']['bleu_improvement']:.4f}\n")
         f.write(f"  Accuracy: {results['comparison']['accuracy_improvement']:.4f}\n")
+        f.write(
+            f"  BERT Precision: {results['comparison']['bert_precision_improvement']:.4f}\n"
+        )
+        f.write(
+            f"  BERT Recall: {results['comparison']['bert_recall_improvement']:.4f}\n"
+        )
+        f.write(f"  BERT F1: {results['comparison']['bert_f1_improvement']:.4f}\n")
 
 
 if __name__ == "__main__":
