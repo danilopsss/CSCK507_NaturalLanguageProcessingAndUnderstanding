@@ -253,6 +253,7 @@ def evaluate_model_predictions(
     model.eval()
     all_predictions = []
     all_targets = []
+    all_sources = []
 
     print(f"\nGenerating predictions for {model_name}...")
 
@@ -297,9 +298,14 @@ def evaluate_model_predictions(
                 # Convert target to sentence
                 target_indices = tgt_single[0].cpu().numpy()
                 target_sentence = indices_to_sentence(target_indices, idx2word)
+                
+                # Convert source to sentence
+                source_indices = src_single[0].cpu().numpy()
+                source_sentence = indices_to_sentence(source_indices, idx2word)
 
                 all_predictions.append(prediction)
                 all_targets.append(target_sentence)
+                all_sources.append(source_sentence)
 
                 # Update sample progress bar
                 sample_pbar.set_postfix(
@@ -319,7 +325,7 @@ def evaluate_model_predictions(
                 }
             )
 
-    return all_predictions, all_targets
+    return all_predictions, all_targets, all_sources
 
 
 def generate_prediction_no_attention(model, src, word2idx, idx2word, max_len=20):
@@ -374,6 +380,7 @@ def calculate_metrics(predictions: List[str], targets: List[str]) -> Dict[str, f
     """Calculate evaluation metrics including BLEU, accuracy, and BERTScore"""
     bleu_scores = []
     exact_matches = 0
+    empty_predictions = 0
 
     print("\nCalculating evaluation metrics...")
 
@@ -386,6 +393,10 @@ def calculate_metrics(predictions: List[str], targets: List[str]) -> Dict[str, f
     )
 
     for pred, target in metric_pbar:
+        # Count empty predictions
+        if not pred.strip():
+            empty_predictions += 1
+            
         # BLEU score
         pred_tokens = pred.split() if pred else []
         target_tokens = target.split() if target else []
@@ -405,7 +416,7 @@ def calculate_metrics(predictions: List[str], targets: List[str]) -> Dict[str, f
             {
                 "Avg_BLEU": f"{current_avg_bleu:.4f}",
                 "Accuracy": f"{current_accuracy:.4f}",
-                "Exact_matches": exact_matches,
+                "Empty": empty_predictions,
             }
         )
 
@@ -419,6 +430,8 @@ def calculate_metrics(predictions: List[str], targets: List[str]) -> Dict[str, f
         "bleu_score": avg_bleu,
         "accuracy": accuracy,
         "total_samples": len(predictions),
+        "empty_predictions": empty_predictions,
+        "empty_prediction_rate": empty_predictions / len(predictions) if predictions else 0.0,
         "bert_precision": bert_metrics["bert_precision"],
         "bert_recall": bert_metrics["bert_recall"],
         "bert_f1": bert_metrics["bert_f1"],
@@ -516,11 +529,12 @@ def load_model_with_attention(vocab_size, word2idx):
 
 
 def print_sample_predictions(
-    predictions: List[str], targets: List[str], model_name: str, n_samples: int = 10
+    predictions: List[str], targets: List[str], sources: List[str], model_name: str, n_samples: int = 20
 ):
     """Print sample predictions for manual evaluation"""
     print(f"\n--- Sample Predictions for {model_name} ---")
     for i in range(min(n_samples, len(predictions))):
+        print(f"Question:   {sources[i]}")
         print(f"Target:     {targets[i]}")
         print(f"Prediction: {predictions[i]}")
         print("-" * 50)
@@ -550,7 +564,7 @@ def main():
     print("EVALUATING SEQ2SEQ MODEL WITHOUT ATTENTION")
     print("=" * 60)
 
-    predictions_no_att, targets_no_att = evaluate_model_predictions(
+    predictions_no_att, targets_no_att, sources_no_att = evaluate_model_predictions(
         model_no_attention, test_loader, word2idx, idx2word, "Seq2Seq without Attention"
     )
 
@@ -562,10 +576,11 @@ def main():
     print(f"BERT Precision:  {metrics_no_att['bert_precision']:.4f}")
     print(f"BERT Recall:     {metrics_no_att['bert_recall']:.4f}")
     print(f"BERT F1:         {metrics_no_att['bert_f1']:.4f}")
+    print(f"Empty Responses: {metrics_no_att['empty_predictions']} ({metrics_no_att['empty_prediction_rate']:.1%})")
     print(f"Total Samples:   {metrics_no_att['total_samples']}")
 
     print_sample_predictions(
-        predictions_no_att, targets_no_att, "Seq2Seq without Attention"
+        predictions_no_att, targets_no_att, sources_no_att, "Seq2Seq without Attention"
     )
 
     # Evaluate model with attention
@@ -573,7 +588,7 @@ def main():
     print("EVALUATING SEQ2SEQ MODEL WITH LUONG ATTENTION")
     print("=" * 60)
 
-    predictions_with_att, targets_with_att = evaluate_model_predictions(
+    predictions_with_att, targets_with_att, sources_with_att = evaluate_model_predictions(
         model_with_attention, test_loader, word2idx, idx2word, "Seq2Seq with Attention"
     )
 
@@ -585,10 +600,11 @@ def main():
     print(f"BERT Precision:  {metrics_with_att['bert_precision']:.4f}")
     print(f"BERT Recall:     {metrics_with_att['bert_recall']:.4f}")
     print(f"BERT F1:         {metrics_with_att['bert_f1']:.4f}")
+    print(f"Empty Responses: {metrics_with_att['empty_predictions']} ({metrics_with_att['empty_prediction_rate']:.1%})")
     print(f"Total Samples:   {metrics_with_att['total_samples']}")
 
     print_sample_predictions(
-        predictions_with_att, targets_with_att, "Seq2Seq with Attention"
+        predictions_with_att, targets_with_att, sources_with_att, "Seq2Seq with Attention"
     )
 
     # Comparison
@@ -659,14 +675,16 @@ def main():
         f.write(f"  Accuracy: {metrics_no_att['accuracy']:.4f}\n")
         f.write(f"  BERT Precision: {metrics_no_att['bert_precision']:.4f}\n")
         f.write(f"  BERT Recall: {metrics_no_att['bert_recall']:.4f}\n")
-        f.write(f"  BERT F1: {metrics_no_att['bert_f1']:.4f}\n\n")
+        f.write(f"  BERT F1: {metrics_no_att['bert_f1']:.4f}\n")
+        f.write(f"  Empty Responses: {metrics_no_att['empty_predictions']} ({metrics_no_att['empty_prediction_rate']:.1%})\n\n")
 
         f.write("Seq2Seq with Luong Attention:\n")
         f.write(f"  BLEU Score: {metrics_with_att['bleu_score']:.4f}\n")
         f.write(f"  Accuracy: {metrics_with_att['accuracy']:.4f}\n")
         f.write(f"  BERT Precision: {metrics_with_att['bert_precision']:.4f}\n")
         f.write(f"  BERT Recall: {metrics_with_att['bert_recall']:.4f}\n")
-        f.write(f"  BERT F1: {metrics_with_att['bert_f1']:.4f}\n\n")
+        f.write(f"  BERT F1: {metrics_with_att['bert_f1']:.4f}\n")
+        f.write(f"  Empty Responses: {metrics_with_att['empty_predictions']} ({metrics_with_att['empty_prediction_rate']:.1%})\n\n")
 
         f.write("Improvements (With Attention - Without Attention):\n")
         f.write(f"  BLEU Score: {results['comparison']['bleu_improvement']:.4f}\n")
