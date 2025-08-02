@@ -28,11 +28,6 @@ class Vocab:
 
 
 class Chat:
-    ENC_EMB_DIM = 128
-    DEC_EMB_DIM = 128
-    ENC_HID_DIM = 256
-    DEC_HID_DIM = 256
-
     def __init__(
             self,
             encoder:  EncoderWithAttention | EncoderNoAttention,
@@ -66,7 +61,6 @@ class Chat:
         return top_k_index[sampled_index].item()
 
     def process_encoder_output(self, output: tuple | torch.TensorType, max_len: int = 20) -> list:
-        breakpoint()
         if len(output) == 1:
             ...
         else:
