@@ -7,11 +7,20 @@
     <link rel="stylesheet" href="{{ url_for('static', path='css/style.css') }}"><
 </head>
 <body>
-    <div class="chat-container">
-        <div class="chat-box" id="chat-box"></div>
-        <input type="text" id="user-input" placeholder="Type your message here..." />
-        <button id="send-button">Send</button>
-    </div>
-    <script src="{{ url_for('static', path='js/script.js') }}"></script>
+        <div class="chat-wrapper" style="display: flex; gap: 40px; justify-content: center;">
+            <div class="chat-container">
+                <h3>No Attention</h3>
+                <div class="chat-box" id="chat-box-1"></div>
+                <input type="text" id="no-attention-input" placeholder="Type your message here..." />
+                <button id="no-attention-send-button">Send</button>
+            </div>
+            <div class="chat-container">
+                <h3>With Attention</h3>
+                <div class="chat-box" id="chat-box-2"></div>
+                <input type="text" id="attention-input" placeholder="Type your message here..." />
+                <button id="attention-send-button">Send</button>
+            </div>
+        </div>
+        <script src="{{ url_for('static', path='js/script.js') }}"></script>
 </body>
 </html>
