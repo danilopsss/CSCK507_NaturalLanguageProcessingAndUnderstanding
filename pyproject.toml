@@ -19,6 +19,8 @@ dependencies = [
     "pip>=25.2",
     "tqdm>=4.65.0",
     "ipykernel>=6.25.0",
+    "bert-score>=0.3.13",
+    "seaborn>=0.13.2",
 ]
 
 [tool.ruff]

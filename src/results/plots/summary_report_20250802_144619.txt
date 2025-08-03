@@ -1,0 +1,30 @@
+=== TRAINING AND EVALUATION SUMMARY ===
+
+TRAINING RESULTS:
+  Without Attention (no_attention_20250802_144237):
+    Initial Loss: 6.1580
+    Final Loss: 0.6913
+    Improvement: 88.8%
+
+  Without Attention (no_attention_20250802_133629):
+    Initial Loss: 6.1668
+    Final Loss: 0.2276
+    Improvement: 96.3%
+
+  With Attention (attention_20250802_140347):
+    Initial Loss: 6.8019
+    Final Loss: 0.1946
+    Improvement: 97.1%
+
+LATEST EVALUATION RESULTS:
+  Without Attention:
+    BLEU Score: 0.0962
+    Accuracy: 0.3538
+    BERT F1: 0.9102
+    Empty Responses: 0 (0.0%)
+
+  With Attention:
+    BLEU Score: 0.1201
+    Accuracy: 0.4181
+    BERT F1: 0.9229
+    Empty Responses: 0 (0.0%)

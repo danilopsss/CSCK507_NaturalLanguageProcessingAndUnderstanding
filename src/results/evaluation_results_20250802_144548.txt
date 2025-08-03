@@ -1,0 +1,29 @@
+=== Seq2Seq Chatbot Model Evaluation Results ===
+
+Evaluation Date: 2025-08-02 14:45:48
+Device Used: mps
+Test set size: 342 samples
+Vocabulary size: 5748
+
+Seq2Seq without Attention:
+  BLEU Score: 0.0962
+  Accuracy: 0.3538
+  BERT Precision: 0.9137
+  BERT Recall: 0.9079
+  BERT F1: 0.9102
+  Empty Responses: 0 (0.0%)
+
+Seq2Seq with Luong Attention:
+  BLEU Score: 0.1201
+  Accuracy: 0.4181
+  BERT Precision: 0.9281
+  BERT Recall: 0.9188
+  BERT F1: 0.9229
+  Empty Responses: 0 (0.0%)
+
+Improvements (With Attention - Without Attention):
+  BLEU Score: 0.0239
+  Accuracy: 0.0643
+  BERT Precision: 0.0144
+  BERT Recall: 0.0109
+  BERT F1: 0.0127

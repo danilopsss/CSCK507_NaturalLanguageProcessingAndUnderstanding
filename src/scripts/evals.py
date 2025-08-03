@@ -1,6 +1,7 @@
 """
 Evaluation script for Seq2Seq chatbot models
-Evaluates both models (with and without attention) on the test set using BLEU scores and accuracy metrics.
+Evaluates both models (with and without attention) on the test set using BLEU,
+accuracy, and BERTScore metrics.
 """
 
 import torch
@@ -16,6 +17,7 @@ import os
 import sys
 from tqdm import tqdm
 from datetime import datetime
+import csv
 
 # Add src directory to path for imports
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -115,9 +117,7 @@ class EncoderWithAttention(nn.Module):
     def forward(self, src):
         embedded = self.embedding(src)
         outputs, hidden = self.rnn(embedded)
-        hidden = torch.tanh(
-            self.fc(torch.cat((hidden[-2], hidden[-1]), dim=1))
-        ).unsqueeze(0)
+        hidden = torch.tanh(self.fc(torch.cat((hidden[-2], hidden[-1]), dim=1))).unsqueeze(0)
         return outputs, hidden
 
 
@@ -175,9 +175,7 @@ def load_data():
     print("Loading data using consolidated utilities...")
 
     # Use consolidated data loading function
-    X_train, y_train, X_val, y_val, X_test, y_test, word2idx, idx2word = (
-        load_preprocessed_data()
-    )
+    X_train, y_train, X_val, y_val, X_test, y_test, word2idx, idx2word = load_preprocessed_data()
 
     print(f"Data loaded successfully!")
     print(f" - Vocabulary size: {len(word2idx)}")
@@ -205,16 +203,12 @@ def calculate_bleu_score(references: List[List[str]], hypothesis: List[str]) -> 
 
     smoothing_function = SmoothingFunction().method1
     try:
-        return sentence_bleu(
-            references, hypothesis, smoothing_function=smoothing_function
-        )
+        return sentence_bleu(references, hypothesis, smoothing_function=smoothing_function)
     except:
         return 0.0
 
 
-def calculate_bert_score(
-    predictions: List[str], references: List[str]
-) -> Dict[str, float]:
+def calculate_bert_score(predictions: List[str], references: List[str]) -> Dict[str, float]:
     """
     Calculate BERTScore metrics for predictions vs references
 
@@ -235,9 +229,7 @@ def calculate_bert_score(
     print("Calculating BERTScore metrics...")
 
     # Calculate BERTScore using default BERT model
-    P, R, F1 = bert_score(
-        predictions, references, lang="en", verbose=False, device=str(device)
-    )
+    P, R, F1 = bert_score(predictions, references, lang="en", verbose=False, device=str(device))
 
     return {
         "bert_precision": P.mean().item(),
@@ -246,9 +238,7 @@ def calculate_bert_score(
     }
 
 
-def evaluate_model_predictions(
-    model, test_loader, word2idx, idx2word, model_name="Model"
-):
+def evaluate_model_predictions(model, test_loader, word2idx, idx2word, model_name="Model"):
     """Generate predictions and calculate metrics"""
     model.eval()
     all_predictions = []
@@ -270,9 +260,7 @@ def evaluate_model_predictions(
             max_len = tgt.size(1)
 
             # Create progress bar for samples within batch
-            sample_pbar = tqdm(
-                range(batch_size), desc="Samples", unit="sample", leave=False
-            )
+            sample_pbar = tqdm(range(batch_size), desc="Samples", unit="sample", leave=False)
 
             # Generate predictions
             for i in sample_pbar:
@@ -376,7 +364,9 @@ def generate_prediction_with_attention(model, src, word2idx, idx2word, max_len=2
     return " ".join(prediction)
 
 
-def calculate_metrics(predictions: List[str], targets: List[str]) -> Dict[str, float]:
+def calculate_metrics(
+    predictions: List[str], targets: List[str], sources: List[str] = None, model_name: str = ""
+) -> Dict[str, float]:
     """Calculate evaluation metrics including BLEU, accuracy, and BERTScore"""
     bleu_scores = []
     exact_matches = 0
@@ -384,18 +374,46 @@ def calculate_metrics(predictions: List[str], targets: List[str]) -> Dict[str, f
 
     print("\nCalculating evaluation metrics...")
 
-    # Create progress bar for metric calculation
-    metric_pbar = tqdm(
-        zip(predictions, targets),
-        total=len(predictions),
-        desc="Computing BLEU & Accuracy",
-        unit="sample",
-    )
+    # Setup error logging for empty predictions
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.dirname(script_dir)
+    error_log_path = os.path.join(project_root, "results", "questions_errors.txt")
+    os.makedirs(os.path.dirname(error_log_path), exist_ok=True)
 
-    for pred, target in metric_pbar:
-        # Count empty predictions
+    # Create progress bar for metric calculation
+    if sources:
+        metric_pbar = tqdm(
+            zip(predictions, targets, sources),
+            total=len(predictions),
+            desc="Computing BLEU & Accuracy",
+            unit="sample",
+        )
+    else:
+        metric_pbar = tqdm(
+            zip(predictions, targets),
+            total=len(predictions),
+            desc="Computing BLEU & Accuracy",
+            unit="sample",
+        )
+
+    for i, items in enumerate(metric_pbar):
+        if sources:
+            pred, target, source = items
+        else:
+            pred, target = items
+            source = f"Question {i + 1}"  # fallback if no sources provided
+
+        # Count empty predictions and log problematic questions
         if not pred.strip():
             empty_predictions += 1
+            # Log the question that resulted in empty answer
+            with open(error_log_path, "a", encoding="utf-8") as f:
+                timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                f.write(f"[{timestamp}] Model: {model_name}\n")
+                f.write(f"Question: {source}\n")
+                f.write(f"Expected: {target}\n")
+                f.write(f"Got: <EMPTY>\n")
+                f.write("-" * 50 + "\n")
 
         # BLEU score
         pred_tokens = pred.split() if pred else []
@@ -431,9 +449,7 @@ def calculate_metrics(predictions: List[str], targets: List[str]) -> Dict[str, f
         "accuracy": accuracy,
         "total_samples": len(predictions),
         "empty_predictions": empty_predictions,
-        "empty_prediction_rate": empty_predictions / len(predictions)
-        if predictions
-        else 0.0,
+        "empty_prediction_rate": empty_predictions / len(predictions) if predictions else 0.0,
         "bert_precision": bert_metrics["bert_precision"],
         "bert_recall": bert_metrics["bert_recall"],
         "bert_f1": bert_metrics["bert_f1"],
@@ -448,7 +464,7 @@ def load_model_no_attention(vocab_size, word2idx):
     # Check if model file exists first - use absolute path
     script_dir = os.path.dirname(os.path.abspath(__file__))
     project_root = os.path.dirname(script_dir)
-    model_path = os.path.join(project_root, "models", "chatbot_model_no_attention.pth")
+    model_path = os.path.join(project_root, "models", "weights", "chatbot_model_no_attention.pth")
 
     if not os.path.exists(model_path):
         raise FileNotFoundError(
@@ -487,9 +503,7 @@ def load_model_with_attention(vocab_size, word2idx):
     # Check if model file exists first - use absolute path
     script_dir = os.path.dirname(os.path.abspath(__file__))
     project_root = os.path.dirname(script_dir)
-    model_path = os.path.join(
-        project_root, "models", "chatbot_model_with_attention.pth"
-    )
+    model_path = os.path.join(project_root, "models", "weights", "chatbot_model_with_attention.pth")
     if not os.path.exists(model_path):
         raise FileNotFoundError(
             f"ERROR: Model file '{model_path}' not found!\n\n"
@@ -500,9 +514,7 @@ def load_model_with_attention(vocab_size, word2idx):
         )
 
     encoder = EncoderWithAttention(vocab_size, ENC_EMB_DIM, ENC_HID_DIM).to(device)
-    decoder = DecoderWithAttention(
-        vocab_size, DEC_EMB_DIM, ENC_HID_DIM, DEC_HID_DIM
-    ).to(device)
+    decoder = DecoderWithAttention(vocab_size, DEC_EMB_DIM, ENC_HID_DIM, DEC_HID_DIM).to(device)
 
     # Load the saved model
     try:
@@ -574,7 +586,9 @@ def main():
         model_no_attention, test_loader, word2idx, idx2word, "Seq2Seq without Attention"
     )
 
-    metrics_no_att = calculate_metrics(predictions_no_att, targets_no_att)
+    metrics_no_att = calculate_metrics(
+        predictions_no_att, targets_no_att, sources_no_att, "Seq2Seq without Attention"
+    )
 
     print(f"\n--- Results for Seq2Seq without Attention ---")
     print(f"BLEU Score:      {metrics_no_att['bleu_score']:.4f}")
@@ -596,17 +610,17 @@ def main():
     print("EVALUATING SEQ2SEQ MODEL WITH LUONG ATTENTION")
     print("=" * 60)
 
-    predictions_with_att, targets_with_att, sources_with_att = (
-        evaluate_model_predictions(
-            model_with_attention,
-            test_loader,
-            word2idx,
-            idx2word,
-            "Seq2Seq with Attention",
-        )
+    predictions_with_att, targets_with_att, sources_with_att = evaluate_model_predictions(
+        model_with_attention,
+        test_loader,
+        word2idx,
+        idx2word,
+        "Seq2Seq with Attention",
     )
 
-    metrics_with_att = calculate_metrics(predictions_with_att, targets_with_att)
+    metrics_with_att = calculate_metrics(
+        predictions_with_att, targets_with_att, sources_with_att, "Seq2Seq with Attention"
+    )
 
     print(f"\n--- Results for Seq2Seq with Luong Attention ---")
     print(f"BLEU Score:      {metrics_with_att['bleu_score']:.4f}")
@@ -630,9 +644,7 @@ def main():
     print("\n" + "=" * 60)
     print("MODEL COMPARISON")
     print("=" * 60)
-    print(
-        f"{'Metric':<20} {'No Attention':<15} {'With Attention':<15} {'Improvement':<15}"
-    )
+    print(f"{'Metric':<20} {'No Attention':<15} {'With Attention':<15} {'Improvement':<15}")
     print("-" * 65)
     print(
         f"{'BLEU Score':<20} {metrics_no_att['bleu_score']:<15.4f} {metrics_with_att['bleu_score']:<15.4f} {metrics_with_att['bleu_score'] - metrics_no_att['bleu_score']:<15.4f}"
@@ -655,22 +667,20 @@ def main():
         "seq2seq_no_attention": metrics_no_att,
         "seq2seq_with_attention": metrics_with_att,
         "comparison": {
-            "bleu_improvement": metrics_with_att["bleu_score"]
-            - metrics_no_att["bleu_score"],
-            "accuracy_improvement": metrics_with_att["accuracy"]
-            - metrics_no_att["accuracy"],
+            "bleu_improvement": metrics_with_att["bleu_score"] - metrics_no_att["bleu_score"],
+            "accuracy_improvement": metrics_with_att["accuracy"] - metrics_no_att["accuracy"],
             "bert_precision_improvement": metrics_with_att["bert_precision"]
             - metrics_no_att["bert_precision"],
             "bert_recall_improvement": metrics_with_att["bert_recall"]
             - metrics_no_att["bert_recall"],
-            "bert_f1_improvement": metrics_with_att["bert_f1"]
-            - metrics_no_att["bert_f1"],
+            "bert_f1_improvement": metrics_with_att["bert_f1"] - metrics_no_att["bert_f1"],
         },
     }
 
     # Generate timestamp for results file
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     results_filename = f"evaluation_results_{timestamp}.txt"
+    csv_filename = f"evaluation_results_{timestamp}.csv"
 
     # Get absolute path to results directory
     script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -678,8 +688,58 @@ def main():
     results_dir = os.path.join(project_root, "results")
     os.makedirs(results_dir, exist_ok=True)
     results_path = os.path.join(results_dir, results_filename)
+    csv_path = os.path.join(results_dir, csv_filename)
 
     print(f"\nEvaluation completed! Results saved to {results_path}")
+    print(f"CSV results saved to {csv_path}")
+
+    # Check if any empty predictions were logged
+    error_log_path = os.path.join(results_dir, "questions_errors.txt")
+    if os.path.exists(error_log_path):
+        print(f"Questions resulting in empty answers logged to: {error_log_path}")
+
+    # Save results to CSV for easy analysis and plotting
+    with open(csv_path, "w", newline="") as csvfile:
+        writer = csv.writer(csvfile)
+        writer.writerow(
+            [
+                "model",
+                "bleu_score",
+                "accuracy",
+                "bert_precision",
+                "bert_recall",
+                "bert_f1",
+                "empty_predictions",
+                "empty_prediction_rate",
+                "timestamp",
+            ]
+        )
+        writer.writerow(
+            [
+                "no_attention",
+                metrics_no_att["bleu_score"],
+                metrics_no_att["accuracy"],
+                metrics_no_att["bert_precision"],
+                metrics_no_att["bert_recall"],
+                metrics_no_att["bert_f1"],
+                metrics_no_att["empty_predictions"],
+                metrics_no_att["empty_prediction_rate"],
+                timestamp,
+            ]
+        )
+        writer.writerow(
+            [
+                "with_attention",
+                metrics_with_att["bleu_score"],
+                metrics_with_att["accuracy"],
+                metrics_with_att["bert_precision"],
+                metrics_with_att["bert_recall"],
+                metrics_with_att["bert_f1"],
+                metrics_with_att["empty_predictions"],
+                metrics_with_att["empty_prediction_rate"],
+                timestamp,
+            ]
+        )
 
     # Save detailed results
     with open(results_path, "w") as f:
@@ -712,12 +772,8 @@ def main():
         f.write("Improvements (With Attention - Without Attention):\n")
         f.write(f"  BLEU Score: {results['comparison']['bleu_improvement']:.4f}\n")
         f.write(f"  Accuracy: {results['comparison']['accuracy_improvement']:.4f}\n")
-        f.write(
-            f"  BERT Precision: {results['comparison']['bert_precision_improvement']:.4f}\n"
-        )
-        f.write(
-            f"  BERT Recall: {results['comparison']['bert_recall_improvement']:.4f}\n"
-        )
+        f.write(f"  BERT Precision: {results['comparison']['bert_precision_improvement']:.4f}\n")
+        f.write(f"  BERT Recall: {results['comparison']['bert_recall_improvement']:.4f}\n")
         f.write(f"  BERT F1: {results['comparison']['bert_f1_improvement']:.4f}\n")
 
 
