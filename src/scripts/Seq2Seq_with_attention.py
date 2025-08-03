@@ -1,7 +1,16 @@
 import os
+import sys
 import torch
 import torch.nn as nn
-from utils.model_utils import (
+
+# Add src directory to path for imports
+script_dir = os.path.dirname(os.path.abspath(__file__))
+src_dir = os.path.dirname(script_dir)
+sys.path.insert(0, src_dir)
+
+# Import consolidated utilities
+# Must happen after after path setup!
+from scripts.utils.model_utils import (
     load_preprocessed_data,
     ChatDataset,
     collate_fn,
@@ -13,9 +22,7 @@ from utils.model_utils import (
 )
 
 # Load preprocessed data
-X_train, y_train, X_val, y_val, X_test, y_test, word2idx, idx2word = (
-    load_preprocessed_data()
-)
+X_train, y_train, X_val, y_val, X_test, y_test, word2idx, idx2word = load_preprocessed_data()
 
 # Create training data
 pairs = list(zip(X_train, y_train))
@@ -40,12 +47,14 @@ encoder, decoder, optimizer = create_model_components(
 criterion = nn.CrossEntropyLoss(ignore_index=word2idx[PAD_TOKEN])
 
 # Train the model
-train(encoder, decoder, train_loader, optimizer, criterion)
+run_id = train(encoder, decoder, train_loader, optimizer, criterion)
 
 # Save the model
-project_root = os.path.dirname(os.path.dirname("."))
-model_path = os.path.join(project_root, "models", "chatbot_model_with_attention.pth")
+project_root = os.path.dirname(os.path.dirname(script_dir))
+model_path = os.path.join(project_root, "src", "models", "weights", "chatbot_model_with_attention.pth")
 save_model(encoder, decoder, model_path)
+print(f"\nModel saved to: {model_path}")
+print(f"Run ID: {run_id}")
 
 # Test Chat
 while True:

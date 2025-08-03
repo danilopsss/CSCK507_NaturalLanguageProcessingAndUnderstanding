@@ -4,15 +4,19 @@ from torch.utils.data import Dataset, DataLoader
 import random
 import sys
 import os
+import csv
+from datetime import datetime
 
 # Add the src directory to Python path so we can import from other modules
 script_dir = os.path.dirname(os.path.abspath(__file__))
 src_dir = os.path.dirname(script_dir)
 sys.path.insert(0, src_dir)
+project_root = os.path.dirname(os.path.dirname(script_dir))
+models_dir = os.path.join(src_dir, "models")
 
 # Import from consolidated model utilities
 # Must happen after after path setup!
-from utils.model_utils import (
+from scripts.utils.model_utils import (
     load_preprocessed_data,
     get_vocab_size,
     print_data_summary,
@@ -28,9 +32,7 @@ HIDDEN_SIZE = 512
 
 
 # Load all preprocessed data (requires notebook to be run first)
-X_train, y_train, X_val, y_val, X_test, y_test, word2index, index2word = (
-    load_preprocessed_data()
-)
+X_train, y_train, X_val, y_val, X_test, y_test, word2index, index2word = load_preprocessed_data()
 
 # Set vocabulary size
 VOCAB_SIZE = get_vocab_size(word2index)
@@ -124,7 +126,17 @@ print(f"Total parameters: {sum(p.numel() for p in model.parameters()):,}")
 # Training
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 criterion = nn.CrossEntropyLoss(ignore_index=word2index[PAD_TOKEN])
-EPOCHS = 50
+EPOCHS = 25
+
+# Setup training log CSV
+timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+run_id = f"no_attention_{timestamp}"
+log_path = os.path.join(src_dir, "results", f"training_log_{run_id}.csv")
+os.makedirs(os.path.dirname(log_path), exist_ok=True)
+
+with open(log_path, "w", newline="") as csvfile:
+    writer = csv.writer(csvfile)
+    writer.writerow(["run_id", "epoch", "loss", "timestamp"])
 
 for epoch in range(EPOCHS):
     model.train()
@@ -143,16 +155,20 @@ for epoch in range(EPOCHS):
         loss.backward()
         optimizer.step()
         total_loss += loss.item()
-    print(f"Epoch {epoch + 1}/{EPOCHS} Loss: {total_loss / len(train_loader):.4f}")
 
-# Get absolute path to project root and models directory
-script_dir = os.path.dirname(os.path.abspath(__file__))
-project_root = os.path.dirname(os.path.dirname(script_dir))
-models_dir = os.path.join(project_root, "models")
+    avg_loss = total_loss / len(train_loader)
+    print(f"Epoch {epoch + 1}/{EPOCHS} Loss: {avg_loss:.4f}")
+
+    # Log to CSV
+    with open(log_path, "a", newline="") as csvfile:
+        writer = csv.writer(csvfile)
+        writer.writerow([run_id, epoch + 1, avg_loss, datetime.now().isoformat()])
 
 os.makedirs(models_dir, exist_ok=True)
 
 # Save model to match evals.py expectations
-model_path = os.path.join(models_dir, "chatbot_model_no_attention.pth")
+model_path = os.path.join(models_dir, "weights", "chatbot_model_no_attention.pth")
 torch.save(model.state_dict(), model_path)
 print(f"\nModel saved to: {model_path}")
+print(f"Training log saved to: {log_path}")
+print(f"Run ID: {run_id}")

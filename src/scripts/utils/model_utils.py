@@ -9,14 +9,16 @@ import pickle
 import ast
 import pandas as pd
 import numpy as np
-import spacy
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, DataLoader
+import spacy
 from collections import Counter
 from sklearn.model_selection import train_test_split
 from .device_config import get_device
+import csv
+from datetime import datetime
 
 # Use spaCy tokenization like in preprocessing class
 spacy_en = spacy.load("en_core_web_lg")
@@ -57,15 +59,14 @@ def load_preprocessed_data(base_path=None):
 
     if not os.path.exists(processed_file):
         raise FileNotFoundError(
-            "ERROR: Preprocessed data not found!\n\n"
-            "Missing: {processed_file}\n\n"
-            "Please run the 'preprocessing_and_split.ipynb' notebook first to create "
-            "the preprocessed data.\n"
-            "The notebook will create:\n"
-            "  - DATASET_PROCESSED.csv\n"
-            "  - word2index.pkl\n"
-            "  - index2word.pkl\n\n"
-            "Then you can run this training script."
+            f"ERROR: Preprocessed data not found!\n\n"
+            f"Missing: {processed_file}\n\n"
+            f"Please run the 'preprocessing_and_split.ipynb' notebook first to create the preprocessed data.\n"
+            f"The notebook will create:\n"
+            f"  - DATASET_PROCESSED.csv\n"
+            f"  - word2index.pkl\n"
+            f"  - index2word.pkl\n\n"
+            f"Then you can run this training script."
         )
 
     if not os.path.exists(vocab_word2index) or not os.path.exists(vocab_index2word):
@@ -90,14 +91,10 @@ def load_preprocessed_data(base_path=None):
     # Recreate train/val/test split with same random state as notebook/evals
     X = np.array(qa_df["question_padded"].tolist())
     y = np.array(qa_df["answer_padded"].tolist())
-    X_train, X_temp, y_train, y_temp = train_test_split(
-        X, y, test_size=0.2, random_state=42
-    )
-    X_val, X_test, y_val, y_test = train_test_split(
-        X_temp, y_temp, test_size=0.5, random_state=42
-    )
+    X_train, X_temp, y_train, y_temp = train_test_split(X, y, test_size=0.2, random_state=42)
+    X_val, X_test, y_val, y_test = train_test_split(X_temp, y_temp, test_size=0.5, random_state=42)
 
-    print("Data loaded successfully!")
+    print(f"Data loaded successfully!")
     print(f"    - Vocabulary size: {len(word2index)}")
     print(f"    - Train: {len(X_train)}, Val: {len(X_val)}, Test: {len(X_test)}")
 
@@ -118,9 +115,7 @@ def print_data_summary(X_train, y_train, X_val, y_val, X_test, y_test, word2inde
     print(f"Train set: {len(X_train)} samples")
     print(f"Validation set: {len(X_val)} samples")
     print(f"Test set: {len(X_test)} samples")
-    print(
-        f"Sequence length: {X_train.shape[1]} (questions), {y_train.shape[1]} (answers)"
-    )
+    print(f"Sequence length: {X_train.shape[1]} (questions), {y_train.shape[1]} (answers)")
     print("Special tokens:", ["<pad>", "<unk>", "<sos>", "<eos>"])
     print("=" * 50 + "\n")
 
@@ -203,9 +198,9 @@ class Encoder(nn.Module):
     def forward(self, src):
         embedded = self.embedding(src)  # [src_len, batch_size, emb_dim]
         outputs, hidden = self.rnn(embedded)  # pass into GRU
-        hidden = torch.tanh(
-            self.fc(torch.cat((hidden[-2], hidden[-1]), dim=1))
-        ).unsqueeze(0)  # merge both direction hidden states
+        hidden = torch.tanh(self.fc(torch.cat((hidden[-2], hidden[-1]), dim=1))).unsqueeze(
+            0
+        )  # merge both direction hidden states
         return outputs, hidden
 
 
@@ -223,9 +218,7 @@ class LuongAttention(nn.Module):
         energy = self.attn(encoder_outputs)
         scores = torch.bmm(energy, hidden.unsqueeze(2))
         attn_weights = F.softmax(scores, dim=1)  # get attention weights
-        context = torch.bmm(
-            attn_weights.transpose(1, 2), encoder_outputs
-        )  # compute context vector
+        context = torch.bmm(attn_weights.transpose(1, 2), encoder_outputs)  # compute context vector
         return context.transpose(0, 1)  # [1, batch_size, 512]
 
 
@@ -245,9 +238,7 @@ class Decoder(nn.Module):
         context = self.attn(hidden, encoder_outputs)  # compute context vector
         rnn_input = torch.cat((embedded, context), dim=2)
         output, hidden = self.rnn(rnn_input, hidden)  # Update hidden states
-        output = self.fc(
-            torch.cat((output, context), dim=2).squeeze(0)
-        )  # predict token
+        output = self.fc(torch.cat((output, context), dim=2).squeeze(0))  # predict token
         return output, hidden
 
 
@@ -265,6 +256,21 @@ def train(
 ):
     """Train the seq2seq model"""
     CLIP = 1.0
+
+    # Setup training log CSV
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    run_id = f"attention_{timestamp}"
+
+    # Get src directory path (go up from src/scripts/utils/ to src/)
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    src_dir = os.path.dirname(os.path.dirname(script_dir))
+    log_path = os.path.join(src_dir, "results", f"training_log_{run_id}.csv")
+    os.makedirs(os.path.dirname(log_path), exist_ok=True)
+
+    with open(log_path, "w", newline="") as csvfile:
+        writer = csv.writer(csvfile)
+        writer.writerow(["run_id", "epoch", "loss", "timestamp"])
+
     for epoch in range(n_epochs):
         encoder.train()
         decoder.train()
@@ -291,7 +297,17 @@ def train(
             optimizer.step()
             total_loss += loss.item() / tgt_batch.size(0)
 
-        print(f"Epoch {epoch + 1}/{n_epochs}, Loss: {total_loss / len(loader):.4f}")
+        avg_loss = total_loss / len(loader)
+        print(f"Epoch {epoch + 1}/{n_epochs}, Loss: {avg_loss:.4f}")
+
+        # Log to CSV
+        with open(log_path, "a", newline="") as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerow([run_id, epoch + 1, avg_loss, datetime.now().isoformat()])
+
+    print(f"Training log saved to: {log_path}")
+    print(f"Run ID: {run_id}")
+    return run_id
 
 
 def top_k_sampling(logits, k=10):
@@ -342,9 +358,7 @@ def create_model_components(
     """Create encoder, decoder, optimizer and criterion"""
     encoder = Encoder(vocab_size, enc_emb_dim, enc_hid_dim).to(device)
     decoder = Decoder(vocab_size, dec_emb_dim, dec_hid_dim, enc_hid_dim).to(device)
-    optimizer = torch.optim.Adam(
-        list(encoder.parameters()) + list(decoder.parameters())
-    )
+    optimizer = torch.optim.Adam(list(encoder.parameters()) + list(decoder.parameters()))
     return encoder, decoder, optimizer
 
 

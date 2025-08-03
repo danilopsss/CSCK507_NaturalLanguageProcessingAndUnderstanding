@@ -30,7 +30,7 @@ def get_device(force_cpu=False, force_cuda=False, force_mps=False):
     elif force_mps:
         if not torch.backends.mps.is_available():
             raise RuntimeError("MPS forced but not available!")
-        device = torch.device("ex")
+        device = torch.device("mps")
         print("Device forced to MPS (Apple Silicon)")
     else:
         # Check environment variable first
@@ -82,9 +82,7 @@ def _print_device_info(device):
     """Print information about the selected device"""
     if device.type == "cuda":
         print(f"CUDA device: {torch.cuda.get_device_name(0)}")
-        print(
-            f"CUDA memory: {torch.cuda.get_device_properties(0).total_memory // 1024**3} GB"
-        )
+        print(f"CUDA memory: {torch.cuda.get_device_properties(0).total_memory // 1024**3} GB")
     elif device.type == "mps":
         print("Using Apple Silicon GPU acceleration")
         # MPS doesn't have direct memory query, but we can check if it's built
