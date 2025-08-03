@@ -1,19 +1,20 @@
 
 import torch
 from pathlib import Path
-from src.utils.encoder_attention import EncoderWithAttention
-from src.utils.decoder_attention import DecoderWithAttention
-from src.models.seq2seq.seq2seq_no_attention import Seq2SeqNoAttention
+from src.models.encoders.encoder_attention import EncoderWithAttention
+from src.models.decoders.decoder_attention import DecoderWithAttention
+from src.models.seq2seq.seq2seq_attention import Seq2SeqWithAttention
 from src.chatbot.chat import Vocab
 from src.utils.device import device
 
 ENC_EMB_DIM = 128
-DEC_EMB_DIM = 128
+DEC_EMB_DIM = ENC_EMB_DIM
 ENC_HID_DIM = 256
-DEC_HID_DIM = 256
+DEC_HID_DIM = ENC_HID_DIM
 
-
-ATTENTION_WEIGHTS = next(Path(__file__).parent.parent.rglob("**/*/chatbot_model_with_attention.pth"))
+ATTENTION_WEIGHTS = next(Path(__file__).parent.parent.rglob(
+    "**/*/chatbot_model_with_attention.pth")\
+)
 
 CHECKPOINT = torch.load(ATTENTION_WEIGHTS, map_location=device)
 VOCAB = Vocab()
@@ -28,7 +29,7 @@ def attention_encoder():
         )
         .to(device)
     )
-    encoder.load_state_dict(CHECKPOINT["encoder_state_dict"])
+    encoder.load_state_dict(CHECKPOINT.get("encoder_state_dict"))
     encoder.eval()
     return encoder
 
@@ -43,19 +44,15 @@ def attention_decoder():
         )
         .to(device)
     )
-    decoder.load_state_dict(CHECKPOINT["decoder_state_dict"])
+    decoder.load_state_dict(CHECKPOINT.get("decoder_state_dict"))
     decoder.eval()
     return decoder
 
 
-def no_attention_model():
+def att_model():
     encoder = attention_encoder()
     decoder = attention_decoder()
-    model = Seq2SeqNoAttention(
+    return Seq2SeqWithAttention(
         encoder=encoder,
         decoder=decoder,
-        device=device
-    ).to(device)
-    return model.load_state_dict(
-        torch.load(ATTENTION_WEIGHTS, map_location=device)
     )

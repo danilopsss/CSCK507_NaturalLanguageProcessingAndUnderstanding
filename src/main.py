@@ -10,6 +10,7 @@ from src.utils.tokenizers import DefaultTokenizers
 from src.chatbot.chat import Chat
 from src.utils.device import device
 from src.dependencies.natt_model import natt_model
+from src.dependencies.attention_dependencies import att_model
 
 
 spacy_en = spacy.load("en_core_web_lg")
@@ -35,23 +36,21 @@ async def read_item(request: Request):
     )
 
 
-# @app.websocket("/attention")
-# async def websocket_attention_endpoint(
-#     websocket: WebSocket,
-#     encode=Depends(attention_encoder),
-#     decoder=Depends(attention_decoder)
-# ):
-#     chat = Chat(
-#         encoder=encode,
-#         decoder=decoder,
-#         device=device,
-#         tokenizer=tokenizer
-#     )
-#     await websocket.accept()
-#     while True:
-#         text = await websocket.receive_text()
-#         response = chat.ask(text.strip())
-#         await websocket.send_text(response)
+@app.websocket("/attention")
+async def websocket_attention_endpoint(
+    websocket: WebSocket,
+    model=Depends(att_model),
+):
+    chat = Chat(
+        model=model,
+        device=device,
+        tokenizer=tokenizer
+    )
+    await websocket.accept()
+    while True:
+        text = await websocket.receive_text()
+        response = chat.ask(text.strip())
+        await websocket.send_text(response)
 
 
 @app.websocket("/noAttention")
