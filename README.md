@@ -53,7 +53,7 @@ uv run -- spacy download en_core_web_lg
 
 Run the FastAPI application using `uvicorn` (installed as a dependency):
 ```bash
-uv run uvicorn src.chatbot.main:app --host 0.0.0.0 --reload
+uv run uvicorn src.main:app --host 0.0.0.0 --reload
 ```
 - `uv run` ensures all dependencies are available.
 - `uvicorn` is the server that runs FastAPI.
@@ -75,13 +75,27 @@ You should see the chatbot interface.
 - If `uv` is not recognized, ensure it was installed and your PATH is set correctly.
 - For permission errors, try running commands with `sudo` (Linux/macOS) or as administrator (Windows).
 
+#### Running Evaluations
+
+To run model evaluations:
+
+```bash
+uv run python evals.py
+```
+
+To generate evaluation plots:
+
+```bash
+uv run python evals_plotting.py
+```
+
 #### Summary
 
 1. Install Python and uv
 2. Clone the repository
 3. Install dependencies with `uv sync`
 4. Download spaCy model
-5. Start FastAPI with `uv run uvicorn ...`
+5. Start FastAPI with `uv run uvicorn src.main:app --host 0.0.0.0 --reload`
 6. Open `http://localhost:8000` in your browser
 
 You do not need to manually install packages with `pip`—`uv` handles everything for you.
