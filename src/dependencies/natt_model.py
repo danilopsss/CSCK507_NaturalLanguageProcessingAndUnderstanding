@@ -10,7 +10,7 @@ from src.utils.device import device
 
 
 NO_ATTENTION_WEIGHTS = Path(__file__).parent.parent.rglob(
-    "**/*/chatbot_model_no_attention.pth"
+    "**/*/chatbot_model_no_attention-50epochs.pth"
 )
 CHECKPOINT = torch.load(next(NO_ATTENTION_WEIGHTS), map_location=device)
 

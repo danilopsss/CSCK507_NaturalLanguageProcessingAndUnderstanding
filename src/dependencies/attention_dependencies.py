@@ -13,7 +13,7 @@ ENC_HID_DIM = 256
 DEC_HID_DIM = ENC_HID_DIM
 
 ATTENTION_WEIGHTS = next(Path(__file__).parent.parent.rglob(
-    "**/*/chatbot_model_with_attention.pth")\
+    "**/*/chatbot_model_with_attention.pth")
 )
 
 CHECKPOINT = torch.load(ATTENTION_WEIGHTS, map_location=device)
