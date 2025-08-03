@@ -1,4 +1,4 @@
-from torch import nn, tanh, cat
+from torch import nn
 
 
 class EncoderNoAttention(nn.Module):
@@ -9,5 +9,5 @@ class EncoderNoAttention(nn.Module):
 
     def forward(self, x):
         embedded = self.embedding(x)
-        _, hidden = self.rnn(embedded)
-        return hidden
+        outputs, hidden = self.rnn(embedded)
+        return outputs, hidden

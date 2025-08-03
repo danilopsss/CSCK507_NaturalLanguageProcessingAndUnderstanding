@@ -1,22 +1,16 @@
 import spacy
 
+from pathlib import Path
 from fastapi import Depends, FastAPI, Request, WebSocket
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from src.utils.tokenizers import DefaultTokenizers
-from src.utils.chat import Chat
+from src.chatbot.chat import Chat
 from src.utils.device import device
-from src.dependencies.attention_dependencies import (
-    attention_encoder, attention_decoder
-)
-from src.dependencies.no_attention_dependencies import (
-    no_attention_encoder, no_attention_decoder
-)
+from src.dependencies.natt_model import natt_model
 
-
-from pathlib import Path
 
 spacy_en = spacy.load("en_core_web_lg")
 tokenizer = DefaultTokenizers(spacy_en).default_tokenizer
@@ -41,15 +35,31 @@ async def read_item(request: Request):
     )
 
 
-@app.websocket("/attention")
-async def websocket_attention_endpoint(
-    websocket: WebSocket,
-    encode=Depends(attention_encoder),
-    decoder=Depends(attention_decoder)
+# @app.websocket("/attention")
+# async def websocket_attention_endpoint(
+#     websocket: WebSocket,
+#     encode=Depends(attention_encoder),
+#     decoder=Depends(attention_decoder)
+# ):
+#     chat = Chat(
+#         encoder=encode,
+#         decoder=decoder,
+#         device=device,
+#         tokenizer=tokenizer
+#     )
+#     await websocket.accept()
+#     while True:
+#         text = await websocket.receive_text()
+#         response = chat.ask(text.strip())
+#         await websocket.send_text(response)
+
+
+@app.websocket("/noAttention")
+async def websocket_no_attention_endpoint(
+    websocket: WebSocket, model=Depends(natt_model),
 ):
     chat = Chat(
-        encoder=encode,
-        decoder=decoder,
+        model=model,
         device=device,
         tokenizer=tokenizer
     )
@@ -58,22 +68,3 @@ async def websocket_attention_endpoint(
         text = await websocket.receive_text()
         response = chat.ask(text.strip())
         await websocket.send_text(response)
-
-
-@app.websocket("/noAttention")
-async def websocket_no_attention_endpoint(
-    websocket: WebSocket,
-    encoder=Depends(no_attention_encoder),
-    decoder=Depends(no_attention_decoder)
-):
-    chat = Chat(
-        encoder=encoder,
-        decoder=decoder,
-        device=device,
-        tokenizer=tokenizer
-    )
-    await websocket.accept()
-    while True:
-        text = await websocket.receive_text()
-        response = chat.ask(text.strip())
-        await websocket.send_text(f"Machine: {response}")

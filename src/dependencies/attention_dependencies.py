@@ -3,8 +3,8 @@ import torch
 from pathlib import Path
 from src.utils.encoder_attention import EncoderWithAttention
 from src.utils.decoder_attention import DecoderWithAttention
-from src.utils.seq2seq_no_attention import Seq2SeqNoAttention
-from src.utils.chat import Vocab
+from src.models.seq2seq.seq2seq_no_attention import Seq2SeqNoAttention
+from src.chatbot.chat import Vocab
 from src.utils.device import device
 
 ENC_EMB_DIM = 128
@@ -53,7 +53,8 @@ def no_attention_model():
     decoder = attention_decoder()
     model = Seq2SeqNoAttention(
         encoder=encoder,
-        decoder=decoder
+        decoder=decoder,
+        device=device
     ).to(device)
     return model.load_state_dict(
         torch.load(ATTENTION_WEIGHTS, map_location=device)

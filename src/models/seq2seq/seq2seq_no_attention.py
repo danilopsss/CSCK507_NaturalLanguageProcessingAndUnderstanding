@@ -14,7 +14,7 @@ class Seq2SeqNoAttention(nn.Module):
         vocab_size = self.decoder.fc.out_features
         outputs = zeros(batch_size, trg_len, vocab_size).to(self.device)
 
-        hidden = self.encoder(src)
+        _, hidden = self.encoder(src)
         input_token = trg[:, 0]
 
         for t in range(1, trg_len):
