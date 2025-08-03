@@ -9,11 +9,11 @@ import pickle
 import ast
 import pandas as pd
 import numpy as np
+import spacy
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.utils.data import Dataset, DataLoader
-import spacy
+from torch.utils.data import Dataset
 from collections import Counter
 from sklearn.model_selection import train_test_split
 from .device_config import get_device
@@ -57,14 +57,15 @@ def load_preprocessed_data(base_path=None):
 
     if not os.path.exists(processed_file):
         raise FileNotFoundError(
-            f"ERROR: Preprocessed data not found!\n\n"
-            f"Missing: {processed_file}\n\n"
-            f"Please run the 'preprocessing_and_split.ipynb' notebook first to create the preprocessed data.\n"
-            f"The notebook will create:\n"
-            f"  - DATASET_PROCESSED.csv\n"
-            f"  - word2index.pkl\n"
-            f"  - index2word.pkl\n\n"
-            f"Then you can run this training script."
+            "ERROR: Preprocessed data not found!\n\n"
+            "Missing: {processed_file}\n\n"
+            "Please run the 'preprocessing_and_split.ipynb' notebook first to create "
+            "the preprocessed data.\n"
+            "The notebook will create:\n"
+            "  - DATASET_PROCESSED.csv\n"
+            "  - word2index.pkl\n"
+            "  - index2word.pkl\n\n"
+            "Then you can run this training script."
         )
 
     if not os.path.exists(vocab_word2index) or not os.path.exists(vocab_index2word):
@@ -96,7 +97,7 @@ def load_preprocessed_data(base_path=None):
         X_temp, y_temp, test_size=0.5, random_state=42
     )
 
-    print(f"Data loaded successfully!")
+    print("Data loaded successfully!")
     print(f"    - Vocabulary size: {len(word2index)}")
     print(f"    - Train: {len(X_train)}, Val: {len(X_val)}, Test: {len(X_test)}")
 

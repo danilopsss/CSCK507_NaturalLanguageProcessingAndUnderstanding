@@ -1,14 +1,13 @@
 import torch
 import pickle
-from Model_Utils import Encoder, Decoder, tokenize, top_k_sampling  # Replace with your actual model file and classes
+from .utils.model_utils import Encoder, Decoder, tokenize, top_k_sampling
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-#open stored wordToIndex and IndextToWord vectors
 with open('D:\\Final_Project\\CSCK507_NaturalLanguageProcessingAndUnderstanding\\Data processing\\word2index.pkl', 'rb') as f:
     word2idx = pickle.load(f)
 with open('D:\\Final_Project\\CSCK507_NaturalLanguageProcessingAndUnderstanding\\Data processing\\index2word.pkl', 'rb') as f:
     idx2word = pickle.load(f)
-    
+
 # Model hyperparameters must match what was used during training
 PAD_TOKEN = "<pad>"
 SOS_TOKEN = "<sos>"
@@ -36,7 +35,7 @@ decoder.eval()
 def chat(encoder, decoder, input_text, word2idx, idx2word, max_len=20):
     encoder.eval()
     decoder.eval()
-    
+
     #tokenize and parse response
     #token must be formatted with correct <sos> and <eos> tags
     tokens = tokenize(input_text)
@@ -64,5 +63,5 @@ while True:
     query = input("You: ")
     if query.lower() in ['quit', 'exit']:
         break
-    response = chat(encoder, decoder, query, word2idx, idx2word) 
+    response = chat(encoder, decoder, query, word2idx, idx2word)
     print(f"Bot: {response}")
