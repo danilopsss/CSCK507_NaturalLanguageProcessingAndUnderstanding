@@ -73,7 +73,9 @@ class Chat:
         with torch.no_grad():
             prediction = []
             for _ in range(20):
-                dec_output, dec_hidden = self.model.decoder(dec_input, dec_hidden, enc_outputs)
+                dec_output, dec_hidden = self.model.decoder(
+                    dec_input, dec_hidden, enc_outputs
+                )
                 next_token = dec_output.argmax(1).item()
                 if next_token == self.word2idx[EOS_TOKEN]:
                     break

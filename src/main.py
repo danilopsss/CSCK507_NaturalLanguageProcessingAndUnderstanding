@@ -1,5 +1,3 @@
-import spacy
-
 from pathlib import Path
 from fastapi import Depends, FastAPI, Request, WebSocket
 from fastapi.responses import HTMLResponse
@@ -13,8 +11,7 @@ from src.dependencies.natt_model import natt_model
 from src.dependencies.attention_dependencies import att_model
 
 
-spacy_en = spacy.load("en_core_web_lg")
-tokenizer = DefaultTokenizers(spacy_en).default_tokenizer
+tokenizer = DefaultTokenizers().spacy_tokenizer
 
 app = FastAPI()
 
